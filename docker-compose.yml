@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  postgres:
+    image: "postgis/postgis:13-3.1"
+    environment:
+      POSTGRES_DB: tattler_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  ffmpeg_extraction_job:
+    build: ./services/ffmpeg_extraction_job
+    volumes:
+      - ./videos:/app/videos
+      - ./raw_frames:/app/raw_frames
+
+  detection_orchestrator:
+    build: ./services/detection_orchestrator
+    environment:
+      REDIS_HOST: redis
+    volumes:
+      - ./raw_frames:/app/raw_frames
+    depends_on:
+      - redis
+
+  vehicle_detection_service:
+    build: ./services/vehicle_detection_service
+    environment:
+      REDIS_HOST: redis
+    volumes:
+      - ./raw_frames:/app/raw_frames
+      - ./detected_frames:/app/detected_frames
+    depends_on:
+      - redis
+
+  lpr_job:
+    build: ./services/lpr_job
+    environment:
+      REDIS_HOST: redis
+    volumes:
+      - ./detected_frames:/app/detected_frames
+    depends_on:
+      - redis
+
+  persistence_service:
+    build: ./services/persistence_service
+    environment:
+      REDIS_HOST: redis
+      DB_HOST: postgres
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_NAME: tattler_db
+    depends_on:
+      - redis
+      - postgres
+
+  reporting_engine:
+    build: ./services/reporting
+    environment:
+      DB_HOST: postgres
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_NAME: tattler_db
+    depends_on:
+      - postgres
+
+volumes:
+  redis_data:
+  postgres_data:
