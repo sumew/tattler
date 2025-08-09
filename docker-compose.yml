@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   redis:
     image: "redis:alpine"
@@ -7,6 +5,8 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - tattler_network
 
   postgres:
     image: "postgis/postgis:13-3.1"
@@ -18,63 +18,95 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - tattler_network
 
   ffmpeg_extraction_job:
     build: ./services/ffmpeg_extraction_job
+    environment:
+      VIDEO_FILE: ${VIDEO_FILE:-cars.mp4}
     volumes:
       - ./videos:/app/videos
-      - ./raw_frames:/app/raw_frames
+      - raw_frames_data:/app/raw_frames
+    networks:
+      - tattler_network
 
   detection_orchestrator:
     build: ./services/detection_orchestrator
     environment:
       REDIS_HOST: redis
+      REDIS_PORT: 6379
     volumes:
-      - ./raw_frames:/app/raw_frames
+      - raw_frames_data:/app/raw_frames:ro  # Read-only access
     depends_on:
       - redis
+    networks:
+      - tattler_network
 
   vehicle_detection_service:
     build: ./services/vehicle_detection_service
     environment:
       REDIS_HOST: redis
+      REDIS_PORT: 6379
     volumes:
-      - ./raw_frames:/app/raw_frames
-      - ./detected_frames:/app/detected_frames
+      - raw_frames_data:/app/raw_frames  # Read-write access needed to move/delete frames
+      - detected_frames_data:/app/detected_frames
     depends_on:
       - redis
+    networks:
+      - tattler_network
 
   lpr_job:
     build: ./services/lpr_job
     environment:
       REDIS_HOST: redis
+      REDIS_PORT: 6379
     volumes:
-      - ./detected_frames:/app/detected_frames
+      - detected_frames_data:/app/detected_frames:ro  # Read-only access
     depends_on:
       - redis
+    networks:
+      - tattler_network
 
   persistence_service:
     build: ./services/persistence_service
     environment:
       REDIS_HOST: redis
+      REDIS_PORT: 6379
       DB_HOST: postgres
+      DB_PORT: 5432
       DB_USER: user
       DB_PASSWORD: password
       DB_NAME: tattler_db
     depends_on:
       - redis
       - postgres
+    networks:
+      - tattler_network
 
   reporting_engine:
     build: ./services/reporting
     environment:
       DB_HOST: postgres
+      DB_PORT: 5432
       DB_USER: user
       DB_PASSWORD: password
       DB_NAME: tattler_db
     depends_on:
       - postgres
+    networks:
+      - tattler_network
 
 volumes:
   redis_data:
+    driver: local
   postgres_data:
+    driver: local
+  raw_frames_data:
+    driver: local
+  detected_frames_data:
+    driver: local
+
+networks:
+  tattler_network:
+    driver: bridge
