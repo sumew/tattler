@@ -1,105 +1,148 @@
-.PHONY: setup test-all test-vehicle test-lpr test-extraction clean help
+# Tattler - Drone Parking Lot Monitor
+# Makefile for common operations
 
-# Default Python version
-PYTHON := python3
+.PHONY: help build up down logs clean test-detector test-plates process quick-process
 
-help: ## Show this help message
-	@echo "Available commands:"
-	@echo "  setup           - Set up all virtual environments"
-	@echo "  test-vehicle    - Test vehicle detection service"
-	@echo "  test-lpr        - Test license plate recognition service"
-	@echo "  test-integrated - Test integrated vehicle + license plate pipeline"
-	@echo "  test-all        - Test all services"
-	@echo "  clean           - Clean all virtual environments"
-	@echo "  docker-build    - Build all Docker containers"
-	@echo "  docker-up       - Start all services with Docker"
-	@echo "  docker-down     - Stop all Docker services"
+# Default target
+help:
+	@echo "🚁 Tattler - Drone Parking Lot Monitor"
 	@echo ""
-	@echo "Use IMAGE=path/to/image.jpg with test commands for specific images"
+	@echo "Available commands:"
+	@echo "  make build          - Build all Docker services"
+	@echo "  make up             - Start core services (Redis, PostgreSQL)"
+	@echo "  make down           - Stop all services"
+	@echo "  make logs           - View logs from all services"
+	@echo "  make clean          - Stop services and remove volumes (⚠️  deletes data)"
+	@echo "  make test-detector  - Test YOLO vehicle detector"
+	@echo "  make test-plates    - Test license plate recognizer"
+	@echo "  make process VIDEO=<file> - Run full automated pipeline"
+	@echo "  make quick-process VIDEO=<file> - Quick setup for manual control"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make process VIDEO=flight_001.mp4"
+	@echo "  make quick-process VIDEO=drone_footage.mp4"
+	@echo ""
+	@echo "Manual pipeline steps:"
+	@echo "  make extract VIDEO=<file>     - Extract frames from video"
+	@echo "  make queue                    - Queue frames for detection"
+	@echo "  make detect                   - Run vehicle detection"
+	@echo "  make detect-simple            - Run simplified vehicle detection"
+	@echo "  make plates                   - Run license plate recognition"
+	@echo "  make report                   - Generate reports"
 
-setup: ## Set up all virtual environments for services
-	@echo "Setting up virtual environments for all services..."
-	@./scripts/setup_environments.sh
-
-test-vehicle: ## Test vehicle detection service standalone (use IMAGE=path/to/image.jpg for specific image)
-	@echo "Testing vehicle detection service..."
-	@if [ -n "$(IMAGE)" ]; then \
-		echo "Using specified image: $(IMAGE)"; \
-		if [ -f "$(IMAGE)" ]; then \
-			IMAGE_PATH="$$(pwd)/$(IMAGE)"; \
-		else \
-			IMAGE_PATH="$(IMAGE)"; \
-		fi; \
-		cd services_new/vehicle_detection && source venv/bin/activate && python test_standalone.py "$$IMAGE_PATH"; \
-	else \
-		echo "Using default image (first found)"; \
-		cd services_new/vehicle_detection && source venv/bin/activate && python test_standalone.py; \
-	fi
-
-test-lpr: ## Test license plate recognition service standalone (use IMAGE=path/to/image.jpg for specific image)
-	@echo "Testing license plate recognition service..."
-	@if [ -n "$(IMAGE)" ]; then \
-		echo "Using specified image: $(IMAGE)"; \
-		if [ -f "$(IMAGE)" ]; then \
-			IMAGE_PATH="$$(pwd)/$(IMAGE)"; \
-		else \
-			IMAGE_PATH="$(IMAGE)"; \
-		fi; \
-		cd services_new/license_plate_recognition && source venv/bin/activate && python test_standalone.py "$$IMAGE_PATH"; \
-	else \
-		echo "Using default image (first found)"; \
-		cd services_new/license_plate_recognition && source venv/bin/activate && python test_standalone.py; \
-	fi
-
-test-extraction: ## Test frame extraction service standalone
-	@echo "Testing frame extraction service..."
-	@cd services_new/frame_extraction && source venv/bin/activate && python test_standalone.py
-
-test-integrated: ## Test integrated vehicle detection + license plate recognition (use IMAGE=path/to/image.jpg for specific image)
-	@echo "Testing integrated pipeline..."
-	@if [ -n "$(IMAGE)" ]; then \
-		echo "Using specified image: $(IMAGE)"; \
-		if [ -f "$(IMAGE)" ]; then \
-			IMAGE_PATH="$$(pwd)/$(IMAGE)"; \
-		else \
-			IMAGE_PATH="$(IMAGE)"; \
-		fi; \
-		cd services_new/license_plate_recognition && source venv/bin/activate && python test_integrated.py "$$IMAGE_PATH"; \
-	else \
-		echo "Using default image (first found)"; \
-		cd services_new/license_plate_recognition && source venv/bin/activate && python test_integrated.py; \
-	fi
-
-test-all: test-vehicle test-lpr test-integrated ## Test all services standalone
-
-clean: ## Clean all virtual environments
-	@echo "Cleaning virtual environments..."
-	@rm -rf services_new/vehicle_detection/venv
-	@rm -rf services_new/license_plate_recognition/venv
-	@rm -rf services_new/frame_extraction/venv
-	@rm -rf services_new/persistence/venv
-	@echo "Cleaned!"
-
-run-pipeline: ## Run the full pipeline (requires VIDEO parameter)
-	@if [ -z "$(VIDEO)" ]; then \
-		echo "Usage: make run-pipeline VIDEO=path/to/video.mp4"; \
-		exit 1; \
-	fi
-	@echo "Running pipeline with video: $(VIDEO)"
-	@./scripts/run_pipeline.sh $(VIDEO)
-
-# Development helpers
-dev-install: ## Install development dependencies
-	pip install -r requirements-dev.txt
-
-docker-build: ## Build all Docker containers
+# Build all services
+build:
+	@echo "🔨 Building all Docker services..."
 	docker-compose build
 
-docker-up: ## Start all services with Docker
-	docker-compose up -d
+# Start core services
+up:
+	@echo "🚀 Starting core services..."
+	docker-compose up -d redis
 
-docker-down: ## Stop all Docker services
+# Stop all services
+down:
+	@echo "🛑 Stopping all services..."
 	docker-compose down
 
-docker-logs: ## Show logs from all services
+# View logs
+logs:
+	@echo "📋 Viewing service logs..."
 	docker-compose logs -f
+
+# Clean everything (removes volumes)
+clean:
+	@echo "🧹 Cleaning up (this will delete all data)..."
+	@read -p "Are you sure? [y/N] " -n 1 -r; \
+	echo; \
+	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+		docker-compose down -v; \
+		docker system prune -f; \
+	fi
+
+# Test YOLO detector
+test-detector:
+	@echo "🧪 Testing YOLO vehicle detector..."
+	docker-compose run --rm vehicle_detection_service python test_detector_simple.py
+
+# Test license plate recognizer
+test-plates:
+	@echo "🧪 Testing license plate recognizer..."
+	docker-compose run --rm plate_recognition_service python -m pytest tests/ -v
+
+# Full automated processing
+process:
+	@if [ -z "$(VIDEO)" ]; then \
+		echo "❌ Please specify VIDEO parameter: make process VIDEO=your_video.mp4"; \
+		exit 1; \
+	fi
+	@echo "🎬 Running full automated pipeline for $(VIDEO)..."
+	./process_video.sh $(VIDEO)
+
+# Quick processing setup
+quick-process:
+	@if [ -z "$(VIDEO)" ]; then \
+		echo "❌ Please specify VIDEO parameter: make quick-process VIDEO=your_video.mp4"; \
+		exit 1; \
+	fi
+	@echo "⚡ Running quick setup for $(VIDEO)..."
+	./quick_process.sh $(VIDEO)
+
+# Manual pipeline steps
+extract:
+	@if [ -z "$(VIDEO)" ]; then \
+		echo "❌ Please specify VIDEO parameter: make extract VIDEO=your_video.mp4"; \
+		exit 1; \
+	fi
+	@echo "🎞️  Extracting frames from $(VIDEO)..."
+	VIDEO_FILE=$(VIDEO) docker-compose run --rm ffmpeg_extraction_job
+
+queue:
+	@echo "📋 Frames are processed directly by vehicle detection service (no queuing needed)"
+
+detect:
+	@echo "🚗 Running vehicle detection service..."
+	docker-compose up -d vehicle_detection_service
+	@echo "Monitor with: docker-compose logs -f vehicle_detection_service"
+
+detect-simple:
+	@echo "🚗 Running simplified vehicle detection..."
+	docker-compose run --rm vehicle_detection_service python main_simple.py
+
+plates:
+	@echo "🔤 Running license plate recognition..."
+	docker-compose run --rm plate_recognition_service
+
+report:
+	@echo "📊 Reporting service removed - query PostgreSQL database directly"
+	@echo "   Connect: docker-compose exec postgres psql -U user -d tattler_db"
+
+# Debugging and inspection commands
+inspect-frames:
+	@echo "🔍 Inspecting extracted frames..."
+	docker run --rm -v tattler_raw_frames_data:/data alpine ls -la /data
+
+inspect-detected:
+	@echo "🔍 Inspecting detected frames..."
+	docker run --rm -v tattler_detected_frames_data:/data alpine ls -la /data
+
+inspect-vehicle-crops:
+	@echo "🔍 Inspecting vehicle crops..."
+	docker run --rm -v tattler_vehicle_crops_data:/data alpine ls -la /data
+
+inspect-plate-crops:
+	@echo "🔍 Inspecting license plate crops..."
+	docker run --rm -v tattler_plate_crops_data:/data alpine ls -la /data
+
+status:
+	@echo "📊 Service status:"
+	docker-compose ps
+
+# Development commands
+rebuild:
+	@echo "🔄 Rebuilding all services..."
+	docker-compose build --no-cache
+
+rebuild-detector:
+	@echo "🔄 Rebuilding vehicle detection service..."
+	docker-compose build --no-cache vehicle_detection_service

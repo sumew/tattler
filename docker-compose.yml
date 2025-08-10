@@ -8,19 +8,6 @@ services:
     networks:
       - tattler_network
 
-  postgres:
-    image: "postgis/postgis:13-3.1"
-    environment:
-      POSTGRES_DB: tattler_db
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - tattler_network
-
   ffmpeg_extraction_job:
     build: ./services/ffmpeg_extraction_job
     environment:
@@ -31,80 +18,47 @@ services:
     networks:
       - tattler_network
 
-  detection_orchestrator:
-    build: ./services/detection_orchestrator
-    environment:
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-    volumes:
-      - raw_frames_data:/app/raw_frames:ro  # Read-only access
-    depends_on:
-      - redis
-    networks:
-      - tattler_network
-
   vehicle_detection_service:
     build: ./services/vehicle_detection_service
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      YOLO_CONFIG_DIR: /tmp
+      ULTRALYTICS_OFFLINE: 1
     volumes:
       - raw_frames_data:/app/raw_frames  # Read-write access needed to move/delete frames
       - detected_frames_data:/app/detected_frames
+      - vehicle_crops_data:/app/vehicle_crops
     depends_on:
       - redis
     networks:
       - tattler_network
 
-  lpr_job:
-    build: ./services/lpr_job
+  plate_recognition_service:
+    build: ./services/plate_recognition
     environment:
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      CONFIDENCE_THRESHOLD: ${CONFIDENCE_THRESHOLD:-0.3}
     volumes:
-      - detected_frames_data:/app/detected_frames:ro  # Read-only access
+      - vehicle_crops_data:/app/vehicle_crops:ro  # Read-only access to vehicle crops
+      - plate_crops_data:/app/plate_crops
+      - plate_results_data:/app/results
     depends_on:
-      - redis
-    networks:
-      - tattler_network
-
-  persistence_service:
-    build: ./services/persistence_service
-    environment:
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: user
-      DB_PASSWORD: password
-      DB_NAME: tattler_db
-    depends_on:
-      - redis
-      - postgres
-    networks:
-      - tattler_network
-
-  reporting_engine:
-    build: ./services/reporting
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: user
-      DB_PASSWORD: password
-      DB_NAME: tattler_db
-    depends_on:
-      - postgres
+      - vehicle_detection_service
     networks:
       - tattler_network
 
 volumes:
   redis_data:
     driver: local
-  postgres_data:
-    driver: local
   raw_frames_data:
     driver: local
   detected_frames_data:
+    driver: local
+  vehicle_crops_data:
+    driver: local
+  plate_crops_data:
+    driver: local
+  plate_results_data:
     driver: local
 
 networks:
