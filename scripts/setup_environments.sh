@@ -98,7 +98,7 @@ echo
 echo "🔍 Checking Service Directories..."
 echo
 
-services=("ffmpeg_extraction_job" "detection_orchestrator" "vehicle_detection_service" "persistence_service" "reporting")
+services=("ffmpeg_extraction_job" "detection_orchestrator" "vehicle_detection" "persistence_service" "reporting")
 
 for service in "${services[@]}"; do
     service_dir="services/$service"
@@ -192,11 +192,11 @@ echo
 
 info "This tests the core AI functionality..."
 
-if docker-compose run --rm vehicle_detection_service python test_detector_simple.py &> /dev/null; then
+if docker-compose run --rm vehicle_detection python test_detector_simple.py &> /dev/null; then
     success "YOLO detector is working"
 else
     error "YOLO detector test failed"
-    info "Check service logs: docker-compose logs vehicle_detection_service"
+    info "Check service logs: docker-compose logs vehicle_detection"
 fi
 
 echo

@@ -7,7 +7,7 @@ import numpy as np
 import cv2
 import tempfile
 import os
-from input_utils import load_image_from_input
+from tattler.utils.input_utils import load_image_from_input
 
 def test_input_utils():
     """Test the load_image_from_input function"""

@@ -3,16 +3,14 @@ Vehicle Detection Module using YOLO
 """
 import cv2
 import numpy as np
-import sys
 from pathlib import Path
 from ultralytics import YOLO
 from ultralytics.engine.results import Results
 from typing import List, Dict, Tuple, Optional, Union, TypedDict
 import os
 
-# Add libs to Python path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "libs"))
-from utils.input_utils import load_image_from_input
+# Import from tattler shared utilities
+from tattler.utils.input_utils import load_image_from_input
 
 # Type definitions for better LSP support
 class BoundingBox(TypedDict):
