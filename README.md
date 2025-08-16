@@ -22,6 +22,7 @@ tattler/
 ├── services/
 │   ├── vehicle_detection/          # YOLO-based vehicle detection
 │   ├── plate_recognition/          # License plate detection
+│   ├── plate_reader/               # OCR text extraction from plates
 │   └── ffmpeg_extraction_job/      # Video frame extraction
 └── scripts/                        # Deployment and setup scripts
 ```
@@ -68,6 +69,27 @@ plates = recognizer.extract_plate("car_image.jpg", detections)
 
 [📖 Full Documentation](services/plate_recognition/README.md)
 
+### 🔤 Plate Reader Service
+Optical Character Recognition (OCR) for extracting text from license plate images.
+
+**Features:**
+- Specialized license plate OCR (fast-plate-ocr)
+- Deep learning models trained on license plate data
+- Extremely fast inference (~0.3ms per image)
+- High accuracy with global license plate support
+- No preprocessing required
+
+**Quick Start:**
+```python
+from tattler_plate_reader.reader import PlateReader
+
+reader = PlateReader()  # Uses fast-plate-ocr
+plate_text = reader.read_plate_text("license_plate.jpg")
+print(f"License plate: {plate_text}")
+```
+
+[📖 Full Documentation](services/plate_reader/README.md)
+
 ### 🎬 FFmpeg Extraction Service
 High-performance video frame extraction using FFmpeg.
 
@@ -109,6 +131,7 @@ pip install -e .
 # Install services
 pip install -e ./services/vehicle_detection
 pip install -e ./services/plate_recognition
+pip install -e ./services/plate_reader
 pip install -e ./services/ffmpeg_extraction_job
 
 # Install FFmpeg
@@ -125,6 +148,7 @@ pip install -e ./services/ffmpeg_extraction_job
 from tattler_ffmpeg.main import extract_frames
 from tattler_vehicle_detection.detector import VehicleDetector
 from tattler_plate_recognition.recognizer import PlateRecognizer
+from tattler_plate_reader.reader import PlateReader
 
 # Step 1: Extract frames from drone video
 frames = extract_frames("drone_footage.mp4", "frames/", interval=5.0)
@@ -132,6 +156,7 @@ frames = extract_frames("drone_footage.mp4", "frames/", interval=5.0)
 # Step 2: Detect vehicles in each frame
 vehicle_detector = VehicleDetector()
 plate_recognizer = PlateRecognizer()
+plate_reader = PlateReader()
 
 for frame_file in frames['output_files']:
     frame_path = f"frames/{frame_file}"
@@ -148,7 +173,11 @@ for frame_file in frames['output_files']:
             plate_detections = plate_recognizer.detect_plate(vehicle_img)
             if plate_detections:
                 plates = plate_recognizer.extract_plate(vehicle_img, plate_detections)
-                print(f"Frame {frame_file}, Vehicle {i+1}: Found {len(plates)} plates")
+                
+                # Read text from each plate
+                for j, plate_img in enumerate(plates):
+                    plate_text = plate_reader.read_plate_text(plate_img)
+                    print(f"Frame {frame_file}, Vehicle {i+1}, Plate {j+1}: {plate_text}")
 ```
 
 ### Individual Service Usage
@@ -183,6 +212,10 @@ cd services/vehicle_detection
 # Test plate recognition
 cd services/plate_recognition
 ./run_tests.sh
+
+# Test plate reader
+cd services/plate_reader
+./run_tests.sh
 ```
 
 Add test images to `tests/input/` directories and run the tests to see the services in action.
@@ -194,6 +227,7 @@ Add test images to `tests/input/` directories and run the tests to see the servi
 # Build from repository root
 docker build -f services/vehicle_detection/Dockerfile -t tattler-vehicle-detection .
 docker build -f services/plate_recognition/Dockerfile -t tattler-plate-recognition .
+docker build -f services/plate_reader/Dockerfile -t tattler-plate-reader .
 docker build -f services/ffmpeg_extraction_job/Dockerfile -t tattler-ffmpeg .
 ```
 
@@ -204,6 +238,9 @@ docker run -v $(pwd)/images:/app/images tattler-vehicle-detection
 
 # Plate recognition service
 docker run -v $(pwd)/images:/app/images tattler-plate-recognition
+
+# Plate reader service
+docker run -v $(pwd)/images:/app/images tattler-plate-reader
 
 # FFmpeg extraction service
 docker run -v $(pwd)/videos:/app/videos -v $(pwd)/frames:/app/frames tattler-ffmpeg

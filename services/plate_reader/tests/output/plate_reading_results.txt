@@ -1,0 +1,27 @@
+License Plate Reading Results
+========================================
+
+Image: far_vehicle_1_plate_1.jpg
+Extracted Text: CY73N19
+OCR Engine: fast-plate-ocr
+Confidence: 0.95
+Raw Text: 'CY73N19__'
+Image Size: {'width': 84, 'height': 48}
+------------------------------
+
+Image: far_vehicle_2_plate_1.jpg
+Extracted Text: 8GNN258
+OCR Engine: fast-plate-ocr
+Confidence: 0.95
+Raw Text: '8GNN258__'
+Image Size: {'width': 82, 'height': 45}
+------------------------------
+
+Image: near_vehicle_1_plate_1.jpg
+Extracted Text: 8XXA143
+OCR Engine: fast-plate-ocr
+Confidence: 0.95
+Raw Text: '8XXA143__'
+Image Size: {'width': 156, 'height': 86}
+------------------------------
+
